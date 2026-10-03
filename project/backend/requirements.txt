@@ -1,0 +1,9 @@
+django>=5.0
+channels
+daphne
+djangorestframework
+django-cors-headers
+dj-database-url
+python-dotenv
+python-dotenv
+psycopg2-binary
