@@ -1,31 +1,32 @@
 import { Ionicons } from '@expo/vector-icons';
 import { Redirect, useRouter } from 'expo-router';
-import { Pressable, StyleSheet, Text, View } from 'react-native';
+import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import SensorDashboard from '../components/SensorDashboard';
 import { useAuth } from '../lib/AuthContext';
 import { colors } from '../lib/theme';
-
+ 
 function getGreeting() {
   const hour = new Date().getHours();
   if (hour < 12) return 'Good morning';
   if (hour < 18) return 'Good afternoon';
   return 'Good evening';
 }
-
+ 
 export default function HomeScreen() {
   const router = useRouter();
   const { user, loading, signOut } = useAuth();
-
+ 
   if (loading) return null;
   if (!user) return <Redirect href="/auth/login" />;
-
+ 
   const firstName = user?.name?.trim()?.split(' ')[0] ?? 'There';
-
+ 
   const handleLogout = async () => {
     await signOut();
     router.replace('/auth/login');
   };
-
+ 
   return (
     <SafeAreaView style={styles.safeArea}>
       <View style={styles.container}>
@@ -36,7 +37,7 @@ export default function HomeScreen() {
             </View>
             <Text style={styles.brandName}>HydroVerde</Text>
           </View>
-
+ 
           <Pressable
             onPress={handleLogout}
             hitSlop={10}
@@ -46,16 +47,22 @@ export default function HomeScreen() {
             <Ionicons name="log-out-outline" size={22} color={colors.ink} />
           </Pressable>
         </View>
-
-        <View style={styles.body}>
+ 
+        <ScrollView
+          contentContainerStyle={styles.body}
+          showsVerticalScrollIndicator={false}
+        >
           <Text style={styles.greeting}>{getGreeting()},</Text>
           <Text style={styles.name}>{firstName}</Text>
-        </View>
+ 
+          <Text style={styles.section}>Greenhouse status</Text>
+          <SensorDashboard />
+        </ScrollView>
       </View>
     </SafeAreaView>
   );
 }
-
+ 
 const styles = StyleSheet.create({
   safeArea: { flex: 1, backgroundColor: colors.bg },
   container: { flex: 1, paddingHorizontal: 24, paddingTop: 12 },
@@ -88,7 +95,14 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   logoutPressed: { backgroundColor: colors.line },
-  body: { flex: 1, justifyContent: 'center', paddingBottom: 80 },
+  body: { paddingTop: 24, paddingBottom: 40 },
+  section: {
+    fontSize: 18,
+    fontWeight: '700',
+    color: colors.ink,
+    marginTop: 28,
+    marginBottom: 12,
+  },
   greeting: { fontSize: 22, color: colors.muted, fontWeight: '500' },
   name: {
     fontSize: 44,
@@ -98,3 +112,4 @@ const styles = StyleSheet.create({
     marginTop: 2,
   },
 });
+ 

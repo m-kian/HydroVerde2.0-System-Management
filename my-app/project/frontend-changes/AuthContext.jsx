@@ -1,6 +1,6 @@
 import { createContext, useContext, useEffect, useState } from 'react';
-import { getMe, loginUser, logoutUser, registerUser } from './api';
-import * as storage from './storage';
+import * as SecureStore from 'expo-secure-store';
+import { getMe, loginUser, logoutUser, registerUser } from '../../src/lib/api';
 
 const TOKEN_KEY = 'hydroverde_token';
 const defaultAuthContext = {
@@ -22,13 +22,14 @@ export function AuthProvider({ children }) {
   useEffect(() => {
     (async () => {
       try {
-        const saved = await storage.getItem(TOKEN_KEY);
+        const saved = await SecureStore.getItemAsync(TOKEN_KEY);
         if (saved) {
           setUser(await getMe(saved));
           setToken(saved);
         }
       } catch (e) {
-        if (e.status === 401) await storage.deleteItem(TOKEN_KEY);
+        // Token rejected -> clear it. Network error -> stay signed out for now.
+        if (e.status === 401) await SecureStore.deleteItemAsync(TOKEN_KEY);
       } finally {
         setLoading(false);
       }
@@ -36,7 +37,7 @@ export function AuthProvider({ children }) {
   }, []);
 
   const startSession = async ({ token: t, user: u }) => {
-    await storage.setItem(TOKEN_KEY, t);
+    await SecureStore.setItemAsync(TOKEN_KEY, t);
     setToken(t);
     setUser(u);
   };
@@ -47,7 +48,7 @@ export function AuthProvider({ children }) {
     try {
       if (token) await logoutUser(token);
     } catch {}
-    await storage.deleteItem(TOKEN_KEY);
+    await SecureStore.deleteItemAsync(TOKEN_KEY);
     setToken(null);
     setUser(null);
   };
