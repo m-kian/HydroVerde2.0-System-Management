@@ -29,6 +29,10 @@ The app's `SensorDashboard` updates live (with a Live / Offline / No new data ba
 1. **ESP32 -> Django** (default): `POST /api/readings/ingest/` with header `X-Device-Key: <DEVICE_API_KEY>`
    and JSON `{"ph": 6.5, "temperature": 24.1, "humidity": 60, "water_level": 80, "shade_net_active": false}`.
    Django saves it and pushes it to every signed-in app over the WebSocket (`/ws/`).
+   Only `temperature` and `humidity` are required; `ph`, `water_level` and `shade_net_active` are optional
+   (shown as "--"), so a DHT22-only board works. Sketch: `project/firmware/esp32_dht22/esp32_dht22.ino`.
+   After pulling this change run `python manage.py migrate` (and `python manage.py migrate --database supabase`
+   if you use Supabase).
 2. **ESP32 -> Supabase directly**: set `EXPO_PUBLIC_SUPABASE_URL` and `EXPO_PUBLIC_SUPABASE_PUBLISHABLE_KEY`
    in the Expo app's `.env` (see `.env.example`). The app subscribes to INSERTs on `sensors_reading`
    (override with `EXPO_PUBLIC_SUPABASE_READINGS_TABLE`). Run once in the Supabase SQL Editor:

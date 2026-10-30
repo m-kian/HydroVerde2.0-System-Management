@@ -26,6 +26,14 @@ class SensorTests(TransactionTestCase):
         r = c.get("/api/readings/latest/").json()
         assert r["ph"] == 6.2 and r["shade_net_active"] is True
 
+    def test_temperature_humidity_only(self):
+        c = APIClient()
+        r = c.post("/api/readings/ingest/", {"temperature": 25.3, "humidity": 61}, format="json", HTTP_X_DEVICE_KEY="dev-device-key")
+        assert r.status_code == 201, r.content
+        d = r.json()
+        assert d["ph"] is None and d["water_level"] is None and d["shade_net_active"] is None
+        assert c.post("/api/readings/ingest/", {"humidity": 61}, format="json", HTTP_X_DEVICE_KEY="dev-device-key").status_code == 400
+
     async def test_live_push(self):
         u = await sync_to_async(User.objects.create_user)(email="a@b.com", password="pw123456", name="A")
         tok = await sync_to_async(Token.objects.create)(user=u)

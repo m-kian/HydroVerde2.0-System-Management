@@ -79,7 +79,7 @@ export default function SensorDashboard() {
         <Ionicons name="umbrella-outline" size={22} color={r.shade_net_active ? colors.leaf : colors.muted} />
         <Text style={styles.label}>Shade net motor</Text>
         <Text style={[styles.value, { color: r.shade_net_active ? colors.leaf : colors.muted }]}>
-          {r.shade_net_active ? 'Active' : 'Inactive'}
+          {r.shade_net_active == null ? '--' : r.shade_net_active ? 'Active' : 'Inactive'}
         </Text>
       </View>
       <Text style={[styles.stamp, stale && { color: colors.error }]}>
