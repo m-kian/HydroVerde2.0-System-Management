@@ -1,0 +1,512 @@
+From 69caf6064dbe8fda6f15696f493453c49f79be6b Mon Sep 17 00:00:00 2001
+From: Devin AI <158243242+devin-ai-integration[bot]@users.noreply.github.com>
+Date: Fri, 30 Oct 2026 09:34:19 +0000
+Subject: [PATCH] Live IoT monitoring: Supabase Realtime source, live/stale
+ status on dashboard
+
+Co-Authored-By: Jan Carlo Datoy <datoy.jancarlo113@gmail.com>
+---
+ my-app/.env.example                       |   8 ++
+ my-app/package-lock.json                  | 114 +++++++++++++++++++---
+ my-app/package.json                       |   1 +
+ my-app/project/README.md                  |  19 ++++
+ my-app/src/components/SensorDashboard.jsx |  88 ++++++++++++++---
+ my-app/src/lib/supabase.js                |  15 +++
+ my-app/src/lib/useSensors.js              |  57 +++++++++--
+ my-app/src/lib/useSocket.js               |   9 +-
+ 8 files changed, 278 insertions(+), 33 deletions(-)
+ create mode 100644 my-app/.env.example
+ create mode 100644 my-app/src/lib/supabase.js
+
+diff --git a/my-app/.env.example b/my-app/.env.example
+new file mode 100644
+index 0000000..8d1c76b
+--- /dev/null
++++ b/my-app/.env.example
+@@ -0,0 +1,8 @@
++# Django backend (Android emulator: http://10.0.2.2:8000/api, phone: your PC's LAN IP)
++EXPO_PUBLIC_API_URL=http://192.168.1.10:8000/api
++
++# Optional: live readings via Supabase Realtime (Project Settings -> API).
++# Publishable/anon key only -- never the database password or service_role key.
++EXPO_PUBLIC_SUPABASE_URL=https://xxxx.supabase.co
++EXPO_PUBLIC_SUPABASE_PUBLISHABLE_KEY=sb_publishable_xxx
++# EXPO_PUBLIC_SUPABASE_READINGS_TABLE=sensors_reading
+diff --git a/my-app/package-lock.json b/my-app/package-lock.json
+index 77f65f0..b97ae62 100644
+--- a/my-app/package-lock.json
++++ b/my-app/package-lock.json
+@@ -10,6 +10,7 @@
+       "dependencies": {
+         "@expo/ui": "~57.0.21",
+         "@expo/vector-icons": "^15.0.2",
++        "@supabase/supabase-js": "^2.118.0",
+         "@types/react": "~17.0.21",
+         "expo": "^57.0.26",
+         "expo-constants": "~57.0.20",
+@@ -3411,6 +3412,98 @@
+       "integrity": "sha512-hhyNJ+nbR6ZR7pToHvllEFun9TL0sbL+tk/ON75lo+Xas054uez98qRbsuNt7MBCyZKK4+8Yli/OAGZhmfBZ/g==",
+       "license": "MIT"
+     },
++    "node_modules/@supabase/auth-js": {
++      "version": "2.118.0",
++      "resolved": "https://registry.npmjs.org/@supabase/auth-js/-/auth-js-2.118.0.tgz",
++      "integrity": "sha512-xWfPXyhS2KDSfAneMtI6p/tBnbdiz/5vaRKXEqUfzfC9WCniKr2Ds5o5G7RIGig0bom4z6wUY9zaV07WDVTfnQ==",
++      "license": "MIT",
++      "dependencies": {
++        "tslib": "2.8.1"
++      },
++      "engines": {
++        "node": ">=22.0.0"
++      }
++    },
++    "node_modules/@supabase/functions-js": {
++      "version": "2.118.0",
++      "resolved": "https://registry.npmjs.org/@supabase/functions-js/-/functions-js-2.118.0.tgz",
++      "integrity": "sha512-4ofletPa/noKAU6KHeqsd3FztGzRPUEJRey1MKY0o+PIHaVePqRPShIXtl37gcVyIWaFM+zNg6r9zh0uUSFOSA==",
++      "license": "MIT",
++      "dependencies": {
++        "tslib": "2.8.1"
++      },
++      "engines": {
++        "node": ">=22.0.0"
++      }
++    },
++    "node_modules/@supabase/phoenix": {
++      "version": "0.4.5",
++      "resolved": "https://registry.npmjs.org/@supabase/phoenix/-/phoenix-0.4.5.tgz",
++      "integrity": "sha512-aAn9H9ovVyeApKy11OWOrrOGq8DV68yWeH4ud2lN9fzn4aO8Zb5GLL9m1pUg9nLqIcT+ZDfAcsZe0E/nqdv2lw==",
++      "license": "MIT"
++    },
++    "node_modules/@supabase/postgrest-js": {
++      "version": "2.118.0",
++      "resolved": "https://registry.npmjs.org/@supabase/postgrest-js/-/postgrest-js-2.118.0.tgz",
++      "integrity": "sha512-JXy+37KPApHsyotaQACovv/Jy9E22rfiWLRuT+2UjoEAcAIelDFIrsF/FY47Dy19mO7lI0Tq+zDCX8oJ2Ozfiw==",
++      "license": "MIT",
++      "dependencies": {
++        "tslib": "2.8.1"
++      },
++      "engines": {
++        "node": ">=22.0.0"
++      }
++    },
++    "node_modules/@supabase/realtime-js": {
++      "version": "2.118.0",
++      "resolved": "https://registry.npmjs.org/@supabase/realtime-js/-/realtime-js-2.118.0.tgz",
++      "integrity": "sha512-pzCIEWjqD5/xqEZQerpt+q9rsgYkcrkgCJgf0W2ULqC4fYUeB/p9CFa3t9vn+IVh6dMN9r4ZCE262lZvUC+Bfw==",
++      "license": "MIT",
++      "dependencies": {
++        "@supabase/phoenix": "0.4.5",
++        "tslib": "2.8.1"
++      },
++      "engines": {
++        "node": ">=22.0.0"
++      }
++    },
++    "node_modules/@supabase/storage-js": {
++      "version": "2.118.0",
++      "resolved": "https://registry.npmjs.org/@supabase/storage-js/-/storage-js-2.118.0.tgz",
++      "integrity": "sha512-5MNkKt2Moy7Jud/sPX7/28BwdDxZMCVHGJT00b8op3KRa9LKSjOAYU5IcfGWIstaasAqY8GkbA6oI3IRDgB1YQ==",
++      "license": "MIT",
++      "dependencies": {
++        "iceberg-js": "^0.8.1",
++        "tslib": "2.8.1"
++      },
++      "engines": {
++        "node": ">=22.0.0"
++      }
++    },
++    "node_modules/@supabase/supabase-js": {
++      "version": "2.118.0",
++      "resolved": "https://registry.npmjs.org/@supabase/supabase-js/-/supabase-js-2.118.0.tgz",
++      "integrity": "sha512-FxI8UXMVC2UG7IkeiI8fuQZqq2oI3JeSuN8MPIC2RLVaoEAxKS0nqE6kii9Ewpq8f9gNPM6git1Y8f0vN/QLFw==",
++      "license": "MIT",
++      "dependencies": {
++        "@supabase/auth-js": "2.118.0",
++        "@supabase/functions-js": "2.118.0",
++        "@supabase/postgrest-js": "2.118.0",
++        "@supabase/realtime-js": "2.118.0",
++        "@supabase/storage-js": "2.118.0"
++      },
++      "engines": {
++        "node": ">=22.0.0"
++      },
++      "peerDependencies": {
++        "@opentelemetry/api": ">=1.0.0"
++      },
++      "peerDependenciesMeta": {
++        "@opentelemetry/api": {
++          "optional": true
++        }
++      }
++    },
+     "node_modules/@types/hammerjs": {
+       "version": "2.0.46",
+       "resolved": "https://registry.npmjs.org/@types/hammerjs/-/hammerjs-2.0.46.tgz",
+@@ -5369,6 +5462,15 @@
+       "integrity": "sha512-WDC/ui2VVRrz3jOVi+XtjqkDjiVjTtFaAGiW37k6b+ohyQ5wYDOGkvCZa8+H0nx3gyvv0+BST9xuOgIyGQ00gw==",
+       "license": "BSD-3-Clause"
+     },
++    "node_modules/iceberg-js": {
++      "version": "0.8.1",
++      "resolved": "https://registry.npmjs.org/iceberg-js/-/iceberg-js-0.8.1.tgz",
++      "integrity": "sha512-1dhVQZXhcHje7798IVM+xoo/1ZdVfzOMIc8/rgVSijRK38EDqOJoGula9N/8ZI5RD8QTxNQtK/Gozpr+qUqRRA==",
++      "license": "MIT",
++      "engines": {
++        "node": ">=20.0.0"
++      }
++    },
+     "node_modules/ignore": {
+       "version": "5.3.2",
+       "resolved": "https://registry.npmjs.org/ignore/-/ignore-5.3.2.tgz",
+@@ -5820,9 +5922,6 @@
+       "cpu": [
+         "arm64"
+       ],
+-      "libc": [
+-        "glibc"
+-      ],
+       "license": "MPL-2.0",
+       "optional": true,
+       "os": [
+@@ -5843,9 +5942,6 @@
+       "cpu": [
+         "arm64"
+       ],
+-      "libc": [
+-        "musl"
+-      ],
+       "license": "MPL-2.0",
+       "optional": true,
+       "os": [
+@@ -5866,9 +5962,6 @@
+       "cpu": [
+         "x64"
+       ],
+-      "libc": [
+-        "glibc"
+-      ],
+       "license": "MPL-2.0",
+       "optional": true,
+       "os": [
+@@ -5889,9 +5982,6 @@
+       "cpu": [
+         "x64"
+       ],
+-      "libc": [
+-        "musl"
+-      ],
+       "license": "MPL-2.0",
+       "optional": true,
+       "os": [
+diff --git a/my-app/package.json b/my-app/package.json
+index 8685618..74e844e 100644
+--- a/my-app/package.json
++++ b/my-app/package.json
+@@ -5,6 +5,7 @@
+   "dependencies": {
+     "@expo/ui": "~57.0.21",
+     "@expo/vector-icons": "^15.0.2",
++    "@supabase/supabase-js": "^2.118.0",
+     "@types/react": "~17.0.21",
+     "expo": "^57.0.26",
+     "expo-constants": "~57.0.20",
+diff --git a/my-app/project/README.md b/my-app/project/README.md
+index 3a00448..a20d71d 100644
+--- a/my-app/project/README.md
++++ b/my-app/project/README.md
+@@ -22,3 +22,22 @@ Unset it to fall back to local SQLite.
+ ## Frontend
+ Copy frontend-changes/api.js and AuthContext.jsx into the app's lib/ folder (delete db.js),
+ and set EXPO_PUBLIC_API_URL in the Expo app's .env.
++
++## Real-time monitoring
++The app's `SensorDashboard` updates live (with a Live / Offline / No new data badge) from either path:
++
++1. **ESP32 -> Django** (default): `POST /api/readings/ingest/` with header `X-Device-Key: <DEVICE_API_KEY>`
++   and JSON `{"ph": 6.5, "temperature": 24.1, "humidity": 60, "water_level": 80, "shade_net_active": false}`.
++   Django saves it and pushes it to every signed-in app over the WebSocket (`/ws/`).
++2. **ESP32 -> Supabase directly**: set `EXPO_PUBLIC_SUPABASE_URL` and `EXPO_PUBLIC_SUPABASE_PUBLISHABLE_KEY`
++   in the Expo app's `.env` (see `.env.example`). The app subscribes to INSERTs on `sensors_reading`
++   (override with `EXPO_PUBLIC_SUPABASE_READINGS_TABLE`). Run once in the Supabase SQL Editor:
++
++       alter publication supabase_realtime add table public.sensors_reading;
++       alter table public.sensors_reading enable row level security;
++       create policy "App can read readings" on public.sensors_reading for select to anon, authenticated using (true);
++       grant select on public.sensors_reading to anon, authenticated;
++
++   If the ESP32 inserts with the publishable key it also needs an insert policy, which lets anyone with
++   that key insert rows; prefer path 1 if that matters. Rows written straight to Supabase are not copied
++   back to local SQLite by `sync_supabase`.
+diff --git a/my-app/src/components/SensorDashboard.jsx b/my-app/src/components/SensorDashboard.jsx
+index 93702f2..4ad864b 100644
+--- a/my-app/src/components/SensorDashboard.jsx
++++ b/my-app/src/components/SensorDashboard.jsx
+@@ -1,8 +1,29 @@
+ import { Ionicons } from '@expo/vector-icons';
++import { useEffect, useState } from 'react';
+ import { StyleSheet, Text, View } from 'react-native';
+ import { colors } from '../lib/theme';
+ import { useSensors } from '../lib/useSensors';
+- 
++
++const STALE_AFTER_MS = 2 * 60 * 1000;
++
++const fmt = (v, digits = 0) => (v == null || Number.isNaN(Number(v)) ? '--' : Number(v).toFixed(digits));
++
++function ago(ms) {
++  const s = Math.max(0, Math.round(ms / 1000));
++  if (s < 60) return `${s}s ago`;
++  if (s < 3600) return `${Math.floor(s / 60)}m ago`;
++  return `${Math.floor(s / 3600)}h ago`;
++}
++
++function useNow(intervalMs = 1000) {
++  const [now, setNow] = useState(Date.now());
++  useEffect(() => {
++    const id = setInterval(() => setNow(Date.now()), intervalMs);
++    return () => clearInterval(id);
++  }, [intervalMs]);
++  return now;
++}
++
+ function Card({ icon, label, value, unit, active }) {
+   return (
+     <View style={styles.card}>
+@@ -15,18 +36,44 @@ function Card({ icon, label, value, unit, active }) {
+     </View>
+   );
+ }
+- 
++
++function LiveBadge({ live, stale }) {
++  const color = !live ? colors.muted : stale ? colors.error : colors.leaf;
++  const text = !live ? 'Offline' : stale ? 'No new data' : 'Live';
++  return (
++    <View style={[styles.badge, { borderColor: color }]}>
++      <View style={[styles.dot, { backgroundColor: color }]} />
++      <Text style={[styles.badgeText, { color }]}>{text}</Text>
++    </View>
++  );
++}
++
+ export default function SensorDashboard() {
+-  const r = useSensors();
+-  if (!r) return <Text style={styles.empty}>Waiting for sensor data…</Text>;
+- 
++  const { reading: r, live } = useSensors();
++  const now = useNow();
++  if (!r) {
++    return (
++      <View>
++        <LiveBadge live={live} stale={false} />
++        <Text style={styles.empty}>Waiting for sensor data…</Text>
++      </View>
++    );
++  }
++
++  const age = now - new Date(r.created_at).getTime();
++  const stale = age > STALE_AFTER_MS;
++
+   return (
+     <View>
++      <View style={styles.statusRow}>
++        <LiveBadge live={live} stale={stale} />
++        {r.device_id ? <Text style={styles.device}>{r.device_id}</Text> : null}
++      </View>
+       <View style={styles.grid}>
+-        <Card icon="flask-outline" label="pH" value={r.ph.toFixed(2)} />
+-        <Card icon="thermometer-outline" label="Temperature" value={r.temperature.toFixed(1)} unit="°C" />
+-        <Card icon="water-outline" label="Humidity" value={Math.round(r.humidity)} unit="%" />
+-        <Card icon="beaker-outline" label="Water level" value={Math.round(r.water_level)} unit="%" />
++        <Card icon="flask-outline" label="pH" value={fmt(r.ph, 2)} />
++        <Card icon="thermometer-outline" label="Temperature" value={fmt(r.temperature, 1)} unit="°C" />
++        <Card icon="water-outline" label="Humidity" value={fmt(r.humidity)} unit="%" />
++        <Card icon="beaker-outline" label="Water level" value={fmt(r.water_level)} unit="%" />
+       </View>
+       <View style={[styles.card, styles.wide]}>
+         <Ionicons name="umbrella-outline" size={22} color={r.shade_net_active ? colors.leaf : colors.muted} />
+@@ -35,12 +82,28 @@ export default function SensorDashboard() {
+           {r.shade_net_active ? 'Active' : 'Inactive'}
+         </Text>
+       </View>
+-      <Text style={styles.stamp}>Updated {new Date(r.created_at).toLocaleTimeString()}</Text>
++      <Text style={[styles.stamp, stale && { color: colors.error }]}>
++        Updated {ago(age)} · {new Date(r.created_at).toLocaleTimeString()}
++      </Text>
+     </View>
+   );
+ }
+- 
++
+ const styles = StyleSheet.create({
++  statusRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 12 },
++  badge: {
++    flexDirection: 'row',
++    alignItems: 'center',
++    alignSelf: 'flex-start',
++    gap: 6,
++    borderWidth: 1,
++    borderRadius: 999,
++    paddingHorizontal: 10,
++    paddingVertical: 4,
++  },
++  dot: { width: 8, height: 8, borderRadius: 4 },
++  badgeText: { fontSize: 12, fontWeight: '700' },
++  device: { fontSize: 12, color: colors.muted, fontWeight: '600' },
+   grid: { flexDirection: 'row', flexWrap: 'wrap', gap: 12 },
+   card: {
+     width: '48%',
+@@ -56,6 +119,5 @@ const styles = StyleSheet.create({
+   value: { fontSize: 28, fontWeight: '800', color: colors.ink },
+   unit: { fontSize: 16, fontWeight: '600', color: colors.muted },
+   stamp: { marginTop: 12, fontSize: 12, color: colors.muted, textAlign: 'center' },
+-  empty: { color: colors.muted, textAlign: 'center' },
++  empty: { color: colors.muted, textAlign: 'center', marginTop: 12 },
+ });
+- 
+diff --git a/my-app/src/lib/supabase.js b/my-app/src/lib/supabase.js
+new file mode 100644
+index 0000000..6a4bd44
+--- /dev/null
++++ b/my-app/src/lib/supabase.js
+@@ -0,0 +1,15 @@
++import { createClient } from '@supabase/supabase-js';
++
++// Optional: only used to receive live sensor readings via Supabase Realtime.
++// Auth stays with the Django backend, so no Supabase session is stored.
++const url = process.env.EXPO_PUBLIC_SUPABASE_URL;
++const key = process.env.EXPO_PUBLIC_SUPABASE_PUBLISHABLE_KEY;
++
++export const READINGS_TABLE = process.env.EXPO_PUBLIC_SUPABASE_READINGS_TABLE ?? 'sensors_reading';
++
++export const supabase =
++  url && key
++    ? createClient(url, key, {
++        auth: { persistSession: false, autoRefreshToken: false, detectSessionInUrl: false },
++      })
++    : null;
+diff --git a/my-app/src/lib/useSensors.js b/my-app/src/lib/useSensors.js
+index 24cef6b..341df40 100644
+--- a/my-app/src/lib/useSensors.js
++++ b/my-app/src/lib/useSensors.js
+@@ -1,20 +1,63 @@
+ import { useCallback, useEffect, useState } from 'react';
+ import { getLatestReading } from './api';
+ import { useAuth } from './AuthContext';
++import { READINGS_TABLE, supabase } from './supabase';
+ import { useSocket } from './useSocket';
+ 
+-// Loads the latest reading once, then keeps it live via the WebSocket.
++const time = (r) => (r?.created_at ? new Date(r.created_at).getTime() : 0);
++
++// Readings can arrive from several sources (and the Supabase sync replays old rows),
++// so only ever move forward in time.
++const newest = (current, next) => (next && time(next) >= time(current) ? next : current);
++
++// Live INSERTs on the Supabase readings table (e.g. ESP32 writing straight to Supabase).
++// No-op unless EXPO_PUBLIC_SUPABASE_URL / _PUBLISHABLE_KEY are set.
++function useSupabaseReadings(onReading) {
++  const [connected, setConnected] = useState(false);
++
++  useEffect(() => {
++    if (!supabase) return;
++    let active = true;
++
++    supabase
++      .from(READINGS_TABLE)
++      .select('*')
++      .order('created_at', { ascending: false })
++      .limit(1)
++      .maybeSingle()
++      .then(({ data }) => active && data && onReading(data));
++
++    const channel = supabase
++      .channel(`realtime:${READINGS_TABLE}`)
++      .on('postgres_changes', { event: 'INSERT', schema: 'public', table: READINGS_TABLE }, (payload) =>
++        onReading(payload.new)
++      )
++      .subscribe((status) => active && setConnected(status === 'SUBSCRIBED'));
++
++    return () => {
++      active = false;
++      supabase.removeChannel(channel);
++    };
++  }, [onReading]);
++
++  return connected;
++}
++
++// Loads the latest reading once, then keeps it live via the Django WebSocket and/or Supabase Realtime.
+ export function useSensors() {
+   const { token } = useAuth();
+   const [reading, setReading] = useState(null);
++  const push = useCallback((r) => setReading((cur) => newest(cur, r)), []);
+ 
+   useEffect(() => {
+-    if (token) getLatestReading(token).then(setReading).catch(() => {});
+-  }, [token]);
++    if (token) getLatestReading(token).then(push).catch(() => {});
++  }, [token, push]);
+ 
+-  useSocket(useCallback((msg) => {
+-    if (msg.type === 'reading') setReading(msg.reading);
+-  }, []));
++  const socketLive = useSocket(useCallback((msg) => {
++    if (msg.type === 'reading') push(msg.reading);
++  }, [push]));
++  const supabaseLive = useSupabaseReadings(push);
+ 
+-  return reading; // { ph, temperature, humidity, water_level, shade_net_active, created_at } | null
++  // reading: { ph, temperature, humidity, water_level, shade_net_active, source, device_id, created_at } | null
++  return { reading, live: socketLive || supabaseLive };
+ }
+diff --git a/my-app/src/lib/useSocket.js b/my-app/src/lib/useSocket.js
+index 9d15d99..9c612a4 100644
+--- a/my-app/src/lib/useSocket.js
++++ b/my-app/src/lib/useSocket.js
+@@ -1,4 +1,4 @@
+-import { useEffect, useRef } from 'react';
++import { useEffect, useRef, useState } from 'react';
+ import { useAuth } from './AuthContext';
+ 
+ // Derive ws:// URL from the same env var used for the REST API.
+@@ -6,10 +6,12 @@ const API = process.env.EXPO_PUBLIC_API_URL ?? 'http://10.0.2.2:8000/api';
+ const WS_URL = API.replace(/^http/, 'ws').replace(/\/api\/?$/, '/ws/');
+ 
+ // Connects while signed in, auto-reconnects, calls onMessage(obj) for each server message.
++// Returns true while the socket is open.
+ export function useSocket(onMessage) {
+   const { token } = useAuth();
+   const handler = useRef(onMessage);
+   handler.current = onMessage;
++  const [connected, setConnected] = useState(false);
+ 
+   useEffect(() => {
+     if (!token) return;
+@@ -19,10 +21,12 @@ export function useSocket(onMessage) {
+ 
+     const connect = () => {
+       ws = new WebSocket(`${WS_URL}?token=${token}`);
++      ws.onopen = () => setConnected(true);
+       ws.onmessage = (e) => {
+         try { handler.current?.(JSON.parse(e.data)); } catch {}
+       };
+       ws.onclose = (e) => {
++        setConnected(false);
+         if (!closed && e.code !== 4401) retry = setTimeout(connect, 3000);
+       };
+     };
+@@ -32,6 +36,9 @@ export function useSocket(onMessage) {
+       closed = true;
+       clearTimeout(retry);
+       ws?.close();
++      setConnected(false);
+     };
+   }, [token]);
++
++  return connected;
+ }
+-- 
+2.34.1
+

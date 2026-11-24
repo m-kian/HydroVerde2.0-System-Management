@@ -41,3 +41,6 @@ export const logoutUser = (token) => request('/auth/logout/', { method: 'POST', 
 
 export const getLatestReading = (token) => request('/readings/latest/', { token });
 export const getReadingHistory = (token, limit = 100) => request(`/readings/?limit=${limit}`, { token });
+
+export const getRelayStates = (token) => request('/readings/relay/', { token });
+export const setRelayStates = (token, states) => request('/readings/relay/', { method: 'POST', body: states, token });

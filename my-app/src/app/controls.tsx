@@ -2,24 +2,39 @@ import { Ionicons } from '@expo/vector-icons';
 import { Redirect, useRouter } from 'expo-router';
 import { ScrollView, StyleSheet, Text, View, Switch } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { useAuth } from '../lib/AuthContext';
 import { colors } from '../lib/theme';
 import AnimatedButton from '../components/AnimatedButton';
-import { getActuatorStates, controlActuator, ACTUATOR_TYPES } from '../lib/iotService';
+import { getActuatorStates, controlActuator } from '../lib/iotService';
+import { getRelayStates, setRelayStates } from '../lib/api';
 
 export default function Controls() {
   const router = useRouter();
-  const { user, loading } = useAuth();
+  const { user, loading, token } = useAuth();
   const [actuatorStates, setActuatorStates] = useState(getActuatorStates());
+
+  useEffect(() => {
+    if (!token) return;
+    getRelayStates(token)
+      .then((states) => setActuatorStates((previous) => ({
+        ...previous,
+        valve: Boolean(states.relay_3),
+        fan: Boolean(states.relay_4),
+      })))
+      .catch(() => {});
+  }, [token]);
 
   if (loading) return null;
   if (!user) return <Redirect href="/auth/login" />;
 
-  const toggleActuator = (actuator: string) => {
+  const toggleActuator = (actuator: 'water_pump' | 'nutrient_pump' | 'valve' | 'air_pump' | 'led_light' | 'fan') => {
     const newState = !actuatorStates[actuator];
     controlActuator(actuator, newState);
-    setActuatorStates(prev => ({ ...prev, [actuator]: newState }));
+    setActuatorStates((previous) => ({ ...previous, [actuator]: newState }));
+
+    if (token && actuator === 'valve') setRelayStates(token, { relay_3: newState }).catch(() => {});
+    if (token && actuator === 'fan') setRelayStates(token, { relay_4: newState }).catch(() => {});
   };
 
   const ActuatorCard = ({ 
